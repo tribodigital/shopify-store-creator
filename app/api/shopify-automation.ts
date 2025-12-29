@@ -29,7 +29,7 @@ export async function createShopifyStore(
       'https://www.shopify.com/br/avaliacao-gratuita?irgwc=1&afsrc=1&partner=6709353&affpt=excluded&utm_channel=affiliates&utm_source=6709353-impact&utm_medium=cpa&iradid=1061744',
       { waitUntil: 'networkidle2', timeout: 30000 }
     );
-    console.log('✅ Página de avaliação carregada!');
+    console.log('✅ Página de aviação carregada!');
 
     // ETAPA 2: Preencher email e continuar
     console.log('📧 ETAPA 2: Preenchendo email...');
@@ -61,7 +61,7 @@ export async function createShopifyStore(
       }
     });
 
-    await page.waitForTimeout(2000);
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const countryValue = await page.evaluate(() => {
       return (document.getElementById('country_code') as HTMLSelectElement).value;
@@ -79,7 +79,7 @@ export async function createShopifyStore(
     await page.type('#account_password', password, { delay: 50 });
     console.log('✅ Senha digitada!');
 
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // ETAPA 6: Aguardar botão ficar habilitado
     console.log('⏳ ETAPA 6: Aguardando botão...');
