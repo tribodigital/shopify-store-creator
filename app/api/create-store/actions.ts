@@ -1,10 +1,5 @@
 'use server';
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-
-puppeteer.use(StealthPlugin());
-
 const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
 export async function createShopifyStore(
@@ -12,6 +7,11 @@ export async function createShopifyStore(
   password: string,
   storeName: string
 ) {
+  const { default: puppeteer } = await import('puppeteer-extra');
+  const StealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
+  
+  puppeteer.use(StealthPlugin());
+
   const browser = await puppeteer.connect({
     browserWSEndpoint: `wss://chrome.browserless.io?token=${BROWSERLESS_API_KEY}&stealth=true`,
   });
@@ -20,19 +20,16 @@ export async function createShopifyStore(
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
-    // ETAPA 1: Acessar link de afiliado
     console.log('\ud83d\udd17 Navegando para Shopify...');
     await page.goto(
       'https://www.shopify.com/br/avaliacao-gratuita?irgwc=1&afsrc=1&partner=6709353&affpt=excluded&utm_channel=affiliates&utm_source=6709353-impact&utm_medium=cpa&iradid=1061744',
       { waitUntil: 'networkidle2', timeout: 30000 }
     );
 
-    // ETAPA 2: Preencher email
     console.log('\ud83d\udce7 Preenchendo email...');
     await page.waitForSelector('input[type="email"]', { timeout: 10000 });
     await page.type('input[type="email"]', email, { delay: 50 });
 
-    // ETAPA 3: Mudar pa\u00eds para United Kingdom
     console.log('\ud83c\udf0d Alterando pa\u00eds...');
     await page.waitForSelector('select[name="country"], button[aria-label*="country"]', { timeout: 10000 });
     
@@ -67,12 +64,10 @@ export async function createShopifyStore(
       }
     }
 
-    // ETAPA 4: Preencher senha
     console.log('\ud83d\udd10 Preenchendo senha...');
     await page.waitForSelector('input[type="password"]', { timeout: 10000 });
     await page.type('input[type="password"]', password, { delay: 50 });
 
-    // ETAPA 5: Clicar em criar conta
     console.log('\u2705 Enviando formul\u00e1rio...');
     const submitButton = await page.$('button[type="submit"]');
     if (submitButton) {
@@ -81,11 +76,9 @@ export async function createShopifyStore(
       await page.click('button');
     }
 
-    // ETAPA 6: Aguardar dashboard
     console.log('\u23f3 Aguardando dashboard...');
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => null);
 
-    // ETAPA 7: Extrair dados
     console.log('\ud83d\udccb Extraindo dados...');
     const storeData = await page.evaluate(() => ({
       url: window.location.href,
