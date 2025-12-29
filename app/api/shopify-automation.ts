@@ -107,64 +107,62 @@ export async function createShopifyStore(email: string, storeName: string, passw
     // Aguarda mais um pouco
     await randomDelay(3000, 5000);
     
-    console.log('🔐 Procurando campo de senha...');
+    console.log('🔐 Aguardando página de senha carregar...');
+    await randomDelay(3000, 5000);
     
-    // Tenta encontrar campo de senha
-    const passwordSelectors = [
-      'input[type="password"]',
-      'input[name="account[password]"]',
-      'input[placeholder*="password" i]',
-      'input[placeholder*="senha" i]',
-      '#account_password'
-    ];
-    
-    let passwordField = null;
-    let passwordSelector = '';
-    
-    for (const selector of passwordSelectors) {
-      try {
-        passwordField = await page.$(selector);
-        if (passwordField) {
-          passwordSelector = selector;
-          console.log(`✅ Campo de senha encontrado: ${selector}`);
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
+    // Aguarda campo de senha aparecer
+    try {
+      await page.waitForSelector('input[type="password"]', { timeout: 15000, visible: true });
+      console.log('✅ Campo de senha apareceu!');
+    } catch (e) {
+      console.log('⚠️ Campo de senha não apareceu - pode exigir verificação adicional');
+      console.log('📍 URL atual:', page.url());
+      
+      // Se não encontrou senha, retorna como sucesso parcial
+      return {
+        success: false,
+        storeUrl: page.url(),
+        message: 'Email validado. Aguardando entrada de senha na próxima etapa.'
+      };
     }
     
-    if (passwordField) {
-      console.log('🔐 Digitando senha como humano...');
-      await humanType(page, passwordSelector, password);
-      await randomDelay(1000, 2000);
+    console.log('🔐 Digitando senha como humano...');
+    await humanType(page, 'input[type="password"]', password);
+    await randomDelay(2000, 3000);
+    
+    console.log('🔘 Procurando botão de submit da senha...');
+    
+    // Clica no botão de enviar senha
+    const passwordSubmitted = await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button'));
+      const submitBtn = buttons.find(btn => 
+        btn.textContent?.toLowerCase().includes('submit') ||
+        btn.textContent?.toLowerCase().includes('continue') ||
+        btn.textContent?.toLowerCase().includes('next') ||
+        btn.type === 'submit'
+      );
       
-      console.log('🔘 Procurando botão criar conta...');
+      if (submitBtn) {
+        (submitBtn as HTMLElement).click();
+        return true;
+      }
+      return false;
+    });
+    
+    if (passwordSubmitted) {
+      console.log('✅ Clicou em submit da senha!');
       
-      // Clica usando evaluate
-      const buttonClicked = await page.evaluate(() => {
-        const buttons = Array.from(document.querySelectorAll('button'));
-        const createBtn = buttons.find(btn => 
-          btn.textContent?.toLowerCase().includes('create') ||
-          btn.textContent?.toLowerCase().includes('criar') ||
-          btn.type === 'submit'
-        );
-        
-        if (createBtn) {
-          (createBtn as HTMLElement).click();
-          return true;
-        }
-        return false;
-      });
-      
-      if (buttonClicked) {
-        console.log('✅ Botão criar conta clicado!');
-        await randomDelay(10000, 15000);
-      } else {
-        console.log('⚠️ Botão criar conta não encontrado');
+      // Aguarda mais navegação
+      try {
+        await Promise.race([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+          randomDelay(15000, 20000)
+        ]);
+      } catch (e) {
+        console.log('⚠️ Timeout na navegação pós-senha');
       }
     } else {
-      console.log('⚠️ Campo de senha não encontrado - pode estar em outra etapa');
+      console.log('⚠️ Botão submit da senha não encontrado');
     }
     
     const finalUrl = page.url();
@@ -185,12 +183,19 @@ export async function createShopifyStore(email: string, storeName: string, passw
         storeUrl: finalUrl,
         message: 'Loja criada com sucesso!'
       };
+    } else if (finalUrl.includes('admin.shopify.com')) {
+      console.log('✅ Em processo de setup - ainda na área de admin');
+      return {
+        success: true,
+        storeUrl: finalUrl,
+        message: 'Loja em processo de criação'
+      };
     } else {
-      console.log('⚠️ Processo parcial - ainda em signup');
+      console.log('⚠️ Processo parcial - ainda em autenticação');
       return {
         success: false,
         storeUrl: finalUrl,
-        message: 'Processo iniciado mas não completou'
+        message: 'Processo iniciado mas não completou - possível captcha ou verificação necessária'
       };
     }
     
