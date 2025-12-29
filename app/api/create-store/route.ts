@@ -15,15 +15,6 @@ export async function POST(request: NextRequest) {
 
     const result = await createShopifyStore(email, password, email.split('@')[0]);
 
-    if (!result.success) {
-      console.error('❌ Erro ao criar loja:', result.error);
-
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 }
-      );
-    }
-
     console.log('🎉 Loja criada com sucesso!');
 
     return NextResponse.json(
@@ -37,9 +28,9 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error('❌ Erro:', error);
+    console.error('❌ Erro:', error.message || error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Erro desconhecido' },
+      { success: false, error: error.message || 'Erro ao criar loja' },
       { status: 500 }
     );
   }
