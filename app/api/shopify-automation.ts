@@ -14,7 +14,7 @@ export async function createShopifyStore(email: string, storeName: string, passw
     const page = await browser.newPage();
     
     console.log('🌐 Navegando para Shopify signup...');
-    await page.goto('https://www.shopify.com/br/signup', { 
+    await page.goto('https://shopify.pxf.io/jek2ba', { 
       waitUntil: 'networkidle2',
       timeout: 30000 
     });
