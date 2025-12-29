@@ -1,5 +1,4 @@
 import puppeteer from 'puppeteer-core';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
@@ -140,31 +139,29 @@ export async function createShopifyStore(email: string, storeName: string, passw
       
       console.log('🔘 Procurando botão criar conta...');
       
-      // Procura botão de criar conta
-      const createButton = await page.evaluateHandle(() => {
+      // Clica usando evaluate (mais simples)
+      const buttonClicked = await page.evaluate(() => {
         const buttons = Array.from(document.querySelectorAll('button'));
-        return buttons.find(btn => 
+        const createBtn = buttons.find(btn => 
           btn.textContent?.toLowerCase().includes('create') ||
           btn.textContent?.toLowerCase().includes('criar') ||
           btn.type === 'submit'
         );
+        
+        if (createBtn) {
+          (createBtn as HTMLElement).click();
+          return true;
+        }
+        return false;
       });
       
-      if (createButton) {
-        console.log('✅ Botão criar conta encontrado!');
-        
-        // Move mouse e clica
-        const box = await createButton.asElement()?.boundingBox();
-        if (box) {
-          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 });
-          await randomDelay(200, 500);
-        }
-        
-        await createButton.asElement()?.click();
-        console.log('🖱️ Clicou no botão criar conta!');
+      if (buttonClicked) {
+        console.log('✅ Botão criar conta clicado!');
         
         // Aguarda mais navegação
         await randomDelay(10000, 15000);
+      } else {
+        console.log('⚠️ Botão criar conta não encontrado');
       }
     } else {
       console.log('⚠️ Campo de senha não encontrado - pode estar em outra etapa');
