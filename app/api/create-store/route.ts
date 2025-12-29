@@ -57,10 +57,15 @@ export async function POST(request: NextRequest) {
     const result = await createShopifyStore(email, storeName, password);
 
     if (!result.success) {
-      console.error('❌ Erro ao criar lresult.result.error);
-      
+      console.error('❌ Erro ao criar loja:', result.error);      
       // Salvar erro no Supabase
-      await supabase.from('stores').error.message  result.error
+      await supabase.from('stores').insert([
+        {
+          email,
+          error: result.error,
+          status: 'error'
+        }
+      ]);
       
           email,
           first_name: firstName,
