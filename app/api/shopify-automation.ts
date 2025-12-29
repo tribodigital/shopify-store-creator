@@ -105,7 +105,27 @@ export async function createShopifyStore(email: string, storeName: string, passw
     }
     
     console.log('🔘 Clicando no botão...');
-    await page.click(usedButtonSelector);
+    
+    // Tenta clicar de várias formas
+    try {
+      // Método 1: Scroll até o botão e aguarda ficar visível
+      await submitButton.scrollIntoView();
+      await delay(500);
+      
+      // Método 2: Clica usando JavaScript (mais confiável)
+      await page.evaluate((selector) => {
+        const button = document.querySelector(selector) as HTMLElement;
+        if (button) button.click();
+      }, usedButtonSelector);
+      
+      console.log('✅ Botão clicado com sucesso!');
+      
+    } catch (clickError) {
+      console.error('❌ Erro ao clicar:', clickError);
+      // Tenta pressionar Enter no campo de email como alternativa
+      await page.keyboard.press('Enter');
+      console.log('⌨️ Pressionou Enter como alternativa');
+    }
     
     // Aguarda navegação
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 });
