@@ -56,8 +56,8 @@ export async function createShopifyStore(
 
     if (countryFound) {
       await new Promise(resolve => setTimeout(resolve, 500));
-      await page.evaluate(() => {        const options = document.querySelectorAll('[role="option"], li, button');
-        const options = document.querySelectorAll('[role="option"], li, button';
+      await page.evaluate(() => {
+        const options = document.querySelectorAll('[role="option"], li, button');
         for (const option of options) {
             (option as HTMLElement).click();
             break;
