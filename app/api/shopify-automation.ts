@@ -2,6 +2,9 @@ import puppeteer from 'puppeteer-core';
 
 const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
+// Função helper para delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function createShopifyStore(email: string, storeName: string, password: string) {
   const browser = await puppeteer.connect({
     browserWSEndpoint: `wss://chrome.browserless.io?token=${BROWSERLESS_API_KEY}`,
@@ -17,7 +20,7 @@ export async function createShopifyStore(email: string, storeName: string, passw
     });
     
     // Aguarda um pouco para garantir que tudo carregou
-    await page.waitForTimeout(3000);
+    await delay(3000);
     
     console.log('📸 Tirando screenshot...');
     const screenshot = await page.screenshot({ encoding: 'base64' });
@@ -65,7 +68,7 @@ export async function createShopifyStore(email: string, storeName: string, passw
     await page.type(usedSelector, email);
     
     // Aguarda um pouco
-    await page.waitForTimeout(1000);
+    await delay(1000);
     
     console.log('🔘 Procurando botão submit...');
     
