@@ -10,30 +10,31 @@ export async function createShopifyStore(email: string, storeName: string, passw
   try {
     const page = await browser.newPage();
     
-    // Vai para página de signup do Shopify
+    console.log('🌐 Navegando para Shopify signup...');
     await page.goto('https://www.shopify.com/signup', { waitUntil: 'networkidle2' });
     
-    // Preenche email
+    console.log('📧 Preenchendo email...');
     await page.type('input[name="email"]', email);
     
-    // Clica em "Start free trial"
+    console.log('🔘 Clicando em Start free trial...');
     await page.click('button[type="submit"]');
     
     await page.waitForNavigation({ waitUntil: 'networkidle2' });
     
-    // Preenche nome da loja
+    console.log('🏪 Preenchendo nome da loja...');
     await page.type('input[name="storeName"]', storeName);
     
-    // Define senha
+    console.log('🔐 Definindo senha...');
     await page.type('input[name="password"]', password);
     
-    // Submete formulário
+    console.log('✅ Submetendo formulário...');
     await page.click('button[type="submit"]');
     
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 });
     
-    // Pega URL final da loja
     const storeUrl = page.url();
+    
+    console.log('🎉 Loja criada! URL:', storeUrl);
     
     return {
       success: true,
@@ -42,9 +43,10 @@ export async function createShopifyStore(email: string, storeName: string, passw
     };
     
   } catch (error) {
-    console.error('Erro ao criar loja:', error);
+    console.error('❌ Erro ao criar loja:', error);
     return {
       success: false,
+      storeUrl: '',
       message: 'Erro ao criar loja: ' + (error as Error).message
     };
   } finally {
