@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Inicializar Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Função para gerar senha aleatória
 function generatePassword(): string {
@@ -43,18 +50,43 @@ export async function POST(request: NextRequest) {
     console.log('📦 Criando loja para:', email);
 
     // Simular criação (por enquanto)
-    // TODO: Adicionar Puppeteer + Browserless aqui
+    const storeUrl = `https://${email.split('@')[0].replace(/[^a-z0-9]/g, '')}.myshopify.com`;
+    
+    // Salvar no Supabase
+    const { data, error } = await supabase
+      .from('stores')
+      .insert([
+        {
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          password,
+          store_url: storeUrl,
+          status: 'success'
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Erro Supabase:', error);
+      return NextResponse.json(
+        { error: 'Erro ao salvar no banco de dados' },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ Loja salva no Supabase:', data);
+
     const storeData = {
       email,
       password,
       firstName,
       lastName,
-      storeUrl: `https://${email.split('@')[0].replace(/[^a-z0-9]/g, '')}.myshopify.com`,
+      storeUrl,
       createdAt: new Date().toISOString(),
       status: 'success'
     };
-
-    console.log('✅ Loja criada:', storeData);
 
     return NextResponse.json(storeData);
 
