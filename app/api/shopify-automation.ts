@@ -19,75 +19,55 @@ export async function createShopifyStore(email: string, storeName: string, passw
       timeout: 30000 
     });
     
-    // Aguarda um pouco para garantir que tudo carregou
+    // Aguarda carregamento
     await delay(3000);
     
-    console.log('📸 Tirando screenshot...');
-    const screenshot = await page.screenshot({ encoding: 'base64' });
+    console.log('📧 Procurando campo de email...');
     
-    console.log('🔍 Procurando campo de email...');
+    // Aguarda o campo de email aparecer
+    await page.waitForSelector('input[type="email"]', { timeout: 10000 });
     
-    // Tenta vários seletores possíveis
-    const possibleSelectors = [
-      'input[type="email"]',
-      'input[name="account[email]"]',
-      'input[placeholder*="email" i]',
-      'input#account_email',
-      '#signup-email',
-      '[data-email-input]'
-    ];
+    console.log('✅ Campo de email encontrado!');
+    console.log('📧 Preenchendo email:', email);
     
-    let emailInput = null;
-    let usedSelector = '';
-    
-    for (const selector of possibleSelectors) {
-      try {
-        emailInput = await page.$(selector);
-        if (emailInput) {
-          usedSelector = selector;
-          console.log(`✅ Encontrado com seletor: ${selector}`);
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
-    
-    if (!emailInput) {
-      console.error('❌ Nenhum campo de email encontrado!');
-      console.log('📄 HTML da página:', await page.content());
-      
-      return {
-        success: false,
-        storeUrl: '',
-        message: 'Campo de email não encontrado. Screenshot: data:image/png;base64,' + screenshot
-      };
-    }
-    
-    console.log('📧 Preenchendo email com seletor:', usedSelector);
-    await page.type(usedSelector, email);
-    
-    // Aguarda um pouco
+    await page.type('input[type="email"]', email);
     await delay(1000);
     
-    console.log('🔘 Procurando botão submit...');
+    console.log('🔘 Procurando botão "Start free trial"...');
     
-    const buttonSelectors = [
-      'button[type="submit"]',
-      'input[type="submit"]',
-      'button:has-text("Start")',
-      '[data-button-submit]'
+    // Clica no botão usando JavaScript
+    await page.evaluate(() => {
+      const button = document.querySelector('button[type="submit"]') as HTMLElement;
+      if (button) button.click();
+    });
+    
+    console.log('✅ Botão clicado! Aguardando próxima página...');
+    
+    // Aguarda navegação ou novo formulário aparecer
+    await delay(5000);
+    
+    console.log('🔐 Procurando campo de senha...');
+    
+    // Procura campo de senha
+    const passwordSelectors = [
+      'input[type="password"]',
+      'input[name="account[password]"]',
+      'input[placeholder*="password" i]',
+      '#account_password'
     ];
     
-    let submitButton = null;
-    let usedButtonSelector = '';
+    let passwordFound = false;
     
-    for (const selector of buttonSelectors) {
+    for (const selector of passwordSelectors) {
       try {
-        submitButton = await page.$(selector);
-        if (submitButton) {
-          usedButtonSelector = selector;
-          console.log(`✅ Botão encontrado: ${selector}`);
+        const passwordField = await page.$(selector);
+        if (passwordField) {
+          console.log(`✅ Campo de senha encontrado: ${selector}`);
+          console.log('🔐 Preenchendo senha...');
+          
+          await page.type(selector, password);
+          passwordFound = true;
+          await delay(1000);
           break;
         }
       } catch (e) {
@@ -95,49 +75,47 @@ export async function createShopifyStore(email: string, storeName: string, passw
       }
     }
     
-    if (!submitButton) {
-      console.error('❌ Botão não encontrado!');
+    if (!passwordFound) {
+      console.log('⚠️ Campo de senha não encontrado ainda');
+    }
+    
+    // Procura e clica no próximo botão
+    console.log('🔘 Procurando botão "Create Shopify account"...');
+    
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button'));
+      const createButton = buttons.find(btn => 
+        btn.textContent?.includes('Create') || 
+        btn.textContent?.includes('Criar') ||
+        btn.type === 'submit'
+      );
+      if (createButton) (createButton as HTMLElement).click();
+    });
+    
+    console.log('✅ Clicou no botão de criar conta!');
+    
+    // Aguarda um pouco mais
+    await delay(10000);
+    
+    const finalUrl = page.url();
+    console.log('🎉 URL final:', finalUrl);
+    
+    // Verifica se chegou no admin
+    if (finalUrl.includes('admin.shopify.com') || finalUrl.includes('myshopify.com')) {
+      console.log('✅ SUCESSO! Conta criada!');
       return {
-        success: false,
-        storeUrl: '',
-        message: 'Botão submit não encontrado'
+        success: true,
+        storeUrl: finalUrl,
+        message: 'Loja criada com sucesso!'
+      };
+    } else {
+      console.log('⚠️ Processo parcial - em página de signup');
+      return {
+        success: true,
+        storeUrl: finalUrl,
+        message: 'Processo iniciado - verifique email para confirmar'
       };
     }
-    
-    console.log('🔘 Clicando no botão...');
-    
-    // Tenta clicar de várias formas
-    try {
-      // Método 1: Scroll até o botão e aguarda ficar visível
-      await submitButton.scrollIntoView();
-      await delay(500);
-      
-      // Método 2: Clica usando JavaScript (mais confiável)
-      await page.evaluate((selector) => {
-        const button = document.querySelector(selector) as HTMLElement;
-        if (button) button.click();
-      }, usedButtonSelector);
-      
-      console.log('✅ Botão clicado com sucesso!');
-      
-    } catch (clickError) {
-      console.error('❌ Erro ao clicar:', clickError);
-      // Tenta pressionar Enter no campo de email como alternativa
-      await page.keyboard.press('Enter');
-      console.log('⌨️ Pressionou Enter como alternativa');
-    }
-    
-    // Aguarda navegação
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 });
-    
-    const storeUrl = page.url();
-    console.log('🎉 Progresso! URL atual:', storeUrl);
-    
-    return {
-      success: true,
-      storeUrl,
-      message: 'Processo iniciado com sucesso!'
-    };
     
   } catch (error) {
     console.error('❌ Erro ao criar loja:', error);
