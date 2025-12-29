@@ -1,196 +1,127 @@
-import puppeteer from 'puppeteer-core';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+puppeteer.use(StealthPlugin());
 
 const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
-const randomDelay = (min: number, max: number) => {
-  const delay = Math.floor(Math.random() * (max - min + 1)) + min;
-  return new Promise(resolve => setTimeout(resolve, delay));
-};
-
-export async function createShopifyStore(email: string, storeName: string, password: string) {
+export async function createShopifyStore(
+  email: string,
+  password: string,
+  storeName: string
+) {
   const browser = await puppeteer.connect({
     browserWSEndpoint: `wss://chrome.browserless.io?token=${BROWSERLESS_API_KEY}&stealth=true`,
   });
 
   try {
     const page = await browser.newPage();
-    
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1920, height: 1080 });
-    
-    // ===== ETAPA 1: PREENCHER EMAIL E AVANÇAR =====
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+    console.log('🚀 INICIANDO CRIACAO DA LOJA');
+    console.log(`📧 Email: ${email}`);
+    console.log(`🏪 Loja: ${storeName}`);
+
+    // ETAPA 1: Navegar para página inicial da Shopify
     console.log('🌐 ETAPA 1: Navegando para Shopify...');
-    await page.goto('https://shopify.pxf.io/jek2ba', { 
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
-    
-    console.log('✅ Página inicial carregada!');
-    await randomDelay(3000, 4000);
-    
-    console.log('📧 Esperando campo de email...');
-    await page.waitForSelector('input[type="email"]', { timeout: 15000 });
-    console.log('✅ Campo de email pronto!');
-    
-    console.log('📧 Digitando email:', email);
-    const emailInput = await page.$('input[type="email"]');
-    if (emailInput) {
-      await emailInput.click();
-      await randomDelay(200, 400);
-      await page.keyboard.type(email, { delay: 50 });
-      await randomDelay(500, 1000);
-    }
-    
+    await page.goto(
+      'https://www.shopify.com/br/avaliacao-gratuita?irgwc=1&afsrc=1&partner=6709353&affpt=excluded&utm_channel=affiliates&utm_source=6709353-impact&utm_medium=cpa&iradid=1061744',
+      { waitUntil: 'networkidle2', timeout: 30000 }
+    );
+    console.log('✅ Página carregada!');
+
+    // ETAPA 2: Preencher email e continuar
+    console.log('📧 ETAPA 2: Preenchendo email...');
+    await page.waitForSelector('#ctaemail', { timeout: 10000 });
+    await page.type('#ctaemail', email, { delay: 50 });
+    console.log('✅ Email digitado!');
+
     console.log('🖱️ Clicando botão para avançar...');
-    await page.click('button[type="submit"]');
-    await randomDelay(2000, 3000);
-    
-    console.log('⏳ Aguardando página de signup carregar completamente...');
-    await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
-    await randomDelay(3000, 5000);
-    
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }),
+      page.click('a[type="submit"]'),
+    ]);
+
+    // ETAPA 3: Aguardar página de signup com seletor de país
+    console.log('⏳ ETAPA 3: Aguardando página de signup...');
+    await page.waitForURL(/accounts\.shopify\.com\/signup/, { timeout: 15000 });
+    await page.waitForSelector('#country_code', { timeout: 15000 });
     console.log('✅ Página de signup carregada!');
-    
-    // ===== ETAPA 2: MUDAR PARA UNITED KINGDOM =====
-    console.log('🌍 ETAPA 2: MUDANDO PARA UNITED KINGDOM');
-    
-    // Aguarda a página estabilizar
-    await randomDelay(2000, 3000);
-    
-    // Encontra TODOS os botões e procura pelo de país
-    const allButtons = await page.$$('button');
-    console.log(`🔍 Encontrou ${allButtons.length} botões`);
-    
-    let countryButtonIndex = -1;
-    for (let i = 0; i < allButtons.length; i++) {
-      const text = await page.evaluate((el: any) => el.textContent?.toLowerCase(), allButtons[i]);
-      console.log(`  Botão ${i}: ${text?.substring(0, 30)}`);
-      
-      if (text?.includes('brazil') || text?.includes('brasil') || 
-          text?.includes('united') || text?.includes('kingdom') ||
-          text?.includes('vietnam')) {
-        countryButtonIndex = i;
-        console.log(`✅ Botão de país encontrado no índice ${i}: ${text}`);
-        break;
+
+    // ETAPA 4: MUDAR PAÍS PARA UNITED KINGDOM
+    console.log('🌍 ETAPA 4: Mudando para United Kingdom...');
+    await page.evaluate(() => {
+      const combobox = document.getElementById('country_code') as HTMLSelectElement;
+      if (combobox) {
+        combobox.value = 'United Kingdom';
+        combobox.dispatchEvent(new Event('change', { bubbles: true }));
+        combobox.dispatchEvent(new Event('input', { bubbles: true }));
+        combobox.dispatchEvent(new Event('blur', { bubbles: true }));
       }
+    });
+
+    await page.waitForTimeout(2000);
+
+    const countryValue = await page.evaluate(() => {
+      return (document.getElementById('country_code') as HTMLSelectElement).value;
+    });
+
+    console.log(`✅ País selecionado: ${countryValue}`);
+
+    if (countryValue !== 'United Kingdom' && countryValue !== 'GB') {
+      throw new Error(`País não mudou corretamente: ${countryValue}`);
     }
-    
-    if (countryButtonIndex >= 0) {
-      console.log('🔘 Clicando no botão de país...');
-      await allButtons[countryButtonIndex].click();
-      await randomDelay(1500, 2500);
-      
-      // Aguarda dropdown aparecer
-      const dropdownItems = await page.waitForSelector('[role="option"], li', { timeout: 5000 }).catch(() => null);
-      if (dropdownItems) {
-        console.log('✅ Dropdown aberto!');
-        await randomDelay(500, 1000);
-      }
-      
-      // Procura por United Kingdom no dropdown
-      console.log('🇬🇧 Procurando United Kingdom...');
-      const ukFound = await page.evaluate(() => {
-        const items = Array.from(document.querySelectorAll('[role="option"], li, div, span, button'));
-        for (const item of items) {
-          const text = item.textContent?.toLowerCase() || '';
-          if (text.includes('united kingdom') && text.length < 50) {
-            console.log('Encontrou UK, clicando...');
-            (item as HTMLElement).click();
-            return true;
-          }
-        }
-        return false;
-      });
-      
-      if (ukFound) {
-        console.log('✅ United Kingdom selecionado!');
-        await randomDelay(1500, 2500);
-      } else {
-        console.log('⚠️ UK não encontrado no dropdown');
-      }
-    } else {
-      console.log('⚠️ Botão de país não encontrado');
-    }
-    
-    // ===== ETAPA 3: PREENCHER SENHA =====
-    console.log('🔐 ETAPA 3: Procurando campo de senha...');
-    
-    try {
-      await page.waitForSelector('input[type="password"]', { timeout: 15000 });
-      console.log('✅ Campo de senha encontrado!');
-      
-      const passwordInput = await page.$('input[type="password"]');
-      if (passwordInput) {
-        await passwordInput.click();
-        await randomDelay(200, 400);
-        await page.keyboard.type(password, { delay: 50 });
-        console.log('✅ Senha digitada!');
-        await randomDelay(1000, 2000);
-      }
-    } catch (e) {
-      console.error('❌ Campo de senha não encontrado após seleção de país');
-      throw new Error('Campo de senha nunca apareceu - página pode estar com problema');
-    }
-    
-    // ===== ETAPA 4: CRIAR CONTA =====
-    console.log('🔘 ETAPA 4: Clicando em Criar Conta...');
-    
-    const createButton = await page.$('button[type="submit"]');
-    if (createButton) {
-      await createButton.click();
-      console.log('✅ Botão clicado!');
-      await randomDelay(2000, 3000);
-    }
-    
-    // ===== ETAPA 5: AGUARDAR CHECKOUT =====
-    console.log('⏳ ETAPA 5: Aguardando redirecionamento...');
-    
-    try {
-      await Promise.race([
-        page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }),
-        randomDelay(30000, 40000)
-      ]);
-    } catch (e) {
-      console.log('⚠️ Timeout na navegação');
-    }
-    
+
+    // ETAPA 5: Preencher senha
+    console.log('🔐 ETAPA 5: Preenchendo senha...');
+    await page.waitForSelector('#account_password', { timeout: 10000 });
+    await page.type('#account_password', password, { delay: 50 });
+    console.log('✅ Senha digitada!');
+
+    await page.waitForTimeout(1000);
+
+    // ETAPA 6: Aguardar botão ficar habilitado
+    console.log('⏳ ETAPA 6: Aguardando botão...');
+    await page.waitForFunction(
+      () => {
+        const btn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+        return btn && !btn.disabled;
+      },
+      { timeout: 10000 }
+    );
+    console.log('✅ Botão habilitado!');
+
+    // ETAPA 7: Criar conta
+    console.log('📝 ETAPA 7: Criando conta...');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
+      page.click('button[type="submit"]'),
+    ]);
+
+    console.log('✅ Conta criada!');
+
+    // ETAPA 8: Extrair dados finais
     const finalUrl = page.url();
-    console.log('🎉 URL FINAL:', finalUrl);
-    
-    if (finalUrl.includes('country=GB')) {
-      console.log('✅✅✅ SUCESSO! Country=GB na URL!');
-      return {
-        success: true,
-        storeUrl: finalUrl,
-        message: 'Loja criada! Bandeira em United Kingdom (GB)!'
-      };
-    } else if (finalUrl.includes('checkout') || finalUrl.includes('extend-trial')) {
-      return {
-        success: true,
-        storeUrl: finalUrl,
-        message: 'Em página de checkout'
-      };
-    } else if (finalUrl.includes('admin.shopify.com')) {
-      return {
-        success: true,
-        storeUrl: finalUrl,
-        message: 'Conta criada no admin'
-      };
-    } else {
-      return {
-        success: false,
-        storeUrl: finalUrl,
-        message: 'URL inesperada'
-      };
-    }
-    
-  } catch (error) {
-    console.error('❌ ERRO:', error);
+    const urlParams = new URL(finalUrl);
+    const countryParam = urlParams.searchParams.get('country');
+    const emailParam = urlParams.searchParams.get('ctaemail');
+    const shopDomain = urlParams.searchParams.get('shopPermanentDomain');
+
+    console.log('🎉 SUCESSO COMPLETO!');
+    console.log(`URL Final: ${finalUrl}`);
+    console.log(`Country: ${countryParam}`);
+
     return {
-      success: false,
-      storeUrl: '',
-      message: 'Erro: ' + (error as Error).message
+      success: true,
+      email: emailParam || email,
+      country: 'GB',
+      storeUrl: finalUrl,
+      storeDomain: shopDomain,
+      storeName,
     };
+  } catch (error: any) {
+    console.error('❌ ERRO:', error.message);
+    throw error;
   } finally {
     await browser.close();
   }
