@@ -11,35 +11,109 @@ export async function createShopifyStore(email: string, storeName: string, passw
     const page = await browser.newPage();
     
     console.log('🌐 Navegando para Shopify signup...');
-    await page.goto('https://www.shopify.com/signup', { waitUntil: 'networkidle2' });
+    await page.goto('https://www.shopify.com/br/signup', { 
+      waitUntil: 'networkidle2',
+      timeout: 30000 
+    });
     
-    console.log('📧 Preenchendo email...');
-    await page.type('input[name="email"]', email);
+    // Aguarda um pouco para garantir que tudo carregou
+    await page.waitForTimeout(3000);
     
-    console.log('🔘 Clicando em Start free trial...');
-    await page.click('button[type="submit"]');
+    console.log('📸 Tirando screenshot...');
+    const screenshot = await page.screenshot({ encoding: 'base64' });
     
-    await page.waitForNavigation({ waitUntil: 'networkidle2' });
+    console.log('🔍 Procurando campo de email...');
     
-    console.log('🏪 Preenchendo nome da loja...');
-    await page.type('input[name="storeName"]', storeName);
+    // Tenta vários seletores possíveis
+    const possibleSelectors = [
+      'input[type="email"]',
+      'input[name="account[email]"]',
+      'input[placeholder*="email" i]',
+      'input#account_email',
+      '#signup-email',
+      '[data-email-input]'
+    ];
     
-    console.log('🔐 Definindo senha...');
-    await page.type('input[name="password"]', password);
+    let emailInput = null;
+    let usedSelector = '';
     
-    console.log('✅ Submetendo formulário...');
-    await page.click('button[type="submit"]');
+    for (const selector of possibleSelectors) {
+      try {
+        emailInput = await page.$(selector);
+        if (emailInput) {
+          usedSelector = selector;
+          console.log(`✅ Encontrado com seletor: ${selector}`);
+          break;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
     
+    if (!emailInput) {
+      console.error('❌ Nenhum campo de email encontrado!');
+      console.log('📄 HTML da página:', await page.content());
+      
+      return {
+        success: false,
+        storeUrl: '',
+        message: 'Campo de email não encontrado. Screenshot: data:image/png;base64,' + screenshot
+      };
+    }
+    
+    console.log('📧 Preenchendo email com seletor:', usedSelector);
+    await page.type(usedSelector, email);
+    
+    // Aguarda um pouco
+    await page.waitForTimeout(1000);
+    
+    console.log('🔘 Procurando botão submit...');
+    
+    const buttonSelectors = [
+      'button[type="submit"]',
+      'input[type="submit"]',
+      'button:has-text("Start")',
+      '[data-button-submit]'
+    ];
+    
+    let submitButton = null;
+    let usedButtonSelector = '';
+    
+    for (const selector of buttonSelectors) {
+      try {
+        submitButton = await page.$(selector);
+        if (submitButton) {
+          usedButtonSelector = selector;
+          console.log(`✅ Botão encontrado: ${selector}`);
+          break;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (!submitButton) {
+      console.error('❌ Botão não encontrado!');
+      return {
+        success: false,
+        storeUrl: '',
+        message: 'Botão submit não encontrado'
+      };
+    }
+    
+    console.log('🔘 Clicando no botão...');
+    await page.click(usedButtonSelector);
+    
+    // Aguarda navegação
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 });
     
     const storeUrl = page.url();
-    
-    console.log('🎉 Loja criada! URL:', storeUrl);
+    console.log('🎉 Progresso! URL atual:', storeUrl);
     
     return {
       success: true,
       storeUrl,
-      message: 'Loja criada com sucesso!'
+      message: 'Processo iniciado com sucesso!'
     };
     
   } catch (error) {
