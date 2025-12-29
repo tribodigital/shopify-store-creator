@@ -55,11 +55,10 @@ export async function createShopifyStore(
     }
 
     if (countryFound) {
-      await page.waitForTimeout(500);
-      await page.evaluate(() => {
-        const options = document.querySelectorAll('[role="option"], li, button');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await page.evaluate(() => {        const options = document.querySelectorAll('[role="option"], li, button');
+        const options = document.querySelectorAll('[role="option"], li, button';
         for (const option of options) {
-          if (option.textContent?.includes('United Kingdom')) {
             (option as HTMLElement).click();
             break;
           }
