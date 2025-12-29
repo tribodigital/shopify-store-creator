@@ -40,7 +40,7 @@ export async function createShopifyStore(
 
     const countrySelectors = [
       'select[name="country"]',
-      'button[aria-label*="country"]',
+           });   'button[aria-label*="country"]',
       'button[aria-haspopup="listbox"]',
     ];
 
@@ -63,7 +63,7 @@ export async function createShopifyStore(
             break;
           }
         }
-      });
+      }
     }
 
     console.log('🔐 Preenchendo senha...');
