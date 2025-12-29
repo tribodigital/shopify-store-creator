@@ -16,36 +16,37 @@ export async function createShopifyStore(
 
   try {
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    );
 
     console.log('🚀 INICIANDO CRIACAO DA LOJA');
     console.log(`📧 Email: ${email}`);
-    console.log(`🏪 Loja: ${storeName}`);
 
-    // ETAPA 1: Navegar para página inicial da Shopify
-    console.log('🌐 ETAPA 1: Navegando para Shopify...');
+    // ETAPA 1: Navegar para página inicial da Shopify pelo link de afiliado
+    console.log('🌐 ETAPA 1: Navegando para Shopify via link de afiliado...');
     await page.goto(
       'https://www.shopify.com/br/avaliacao-gratuita?irgwc=1&afsrc=1&partner=6709353&affpt=excluded&utm_channel=affiliates&utm_source=6709353-impact&utm_medium=cpa&iradid=1061744',
       { waitUntil: 'networkidle2', timeout: 30000 }
     );
-    console.log('✅ Página carregada!');
+    console.log('✅ Página de avaliação carregada!');
 
     // ETAPA 2: Preencher email e continuar
     console.log('📧 ETAPA 2: Preenchendo email...');
     await page.waitForSelector('#ctaemail', { timeout: 10000 });
     await page.type('#ctaemail', email, { delay: 50 });
-    console.log('✅ Email digitado!');
 
-    console.log('🖱️ Clicando botão para avançar...');
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }),
       page.click('a[type="submit"]'),
     ]);
 
-    // ETAPA 3: Aguardar página de signup com seletor de país
+    // ETAPA 3: Aguardar página de signup carregar (ainda mantém afiliado)
     console.log('⏳ ETAPA 3: Aguardando página de signup...');
-    await page.waitForURL(/accounts\.shopify\.com\/signup/, { timeout: 15000 });
+    
+    // Esperar o combobox de país aparecer (isto confirma que entrou no formulário correto)
     await page.waitForSelector('#country_code', { timeout: 15000 });
+    
     console.log('✅ Página de signup carregada!');
 
     // ETAPA 4: MUDAR PAÍS PARA UNITED KINGDOM
@@ -110,6 +111,10 @@ export async function createShopifyStore(
     console.log('🎉 SUCESSO COMPLETO!');
     console.log(`URL Final: ${finalUrl}`);
     console.log(`Country: ${countryParam}`);
+
+    if (countryParam !== 'GB') {
+      throw new Error(`País final não é GB: ${countryParam}`);
+    }
 
     return {
       success: true,
