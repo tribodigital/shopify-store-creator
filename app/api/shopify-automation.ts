@@ -18,7 +18,7 @@ async function humanType(page: any, selector: string, text: string) {
   
   for (const char of text) {
     await element.type(char);
-    await randomDelay(50, 150); // Delay entre cada caractere
+    await randomDelay(50, 150);
   }
   
   return true;
@@ -40,18 +40,18 @@ export async function createShopifyStore(email: string, storeName: string, passw
     
     console.log('🌐 Navegando para Shopify signup...');
     await page.goto('https://shopify.pxf.io/jek2ba', { 
-      waitUntil: 'networkidle0',
-      timeout: 30000 
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
     });
     
-    // Aguarda como humano
-    await randomDelay(2000, 4000);
+    console.log('✅ Página carregada! Aguardando estabilização...');
+    await randomDelay(3000, 5000);
     
     console.log('📧 Procurando campo de email...');
     
     // Aguarda o campo de email aparecer
     try {
-      await page.waitForSelector('input[type="email"]', { timeout: 15000 });
+      await page.waitForSelector('input[type="email"]', { timeout: 20000 });
       console.log('✅ Campo de email encontrado!');
     } catch (e) {
       console.log('❌ Campo de email não encontrado');
@@ -93,11 +93,13 @@ export async function createShopifyStore(email: string, storeName: string, passw
     
     console.log('⏳ Aguardando navegação...');
     
-    // Aguarda navegação ou mudança na página
-    await Promise.race([
-      page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 }),
-      randomDelay(10000, 15000)
-    ]);
+    // Aguarda navegação ou mudança na página com timeout maior
+    try {
+      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 45000 });
+      console.log('✅ Navegou para próxima página!');
+    } catch (navError) {
+      console.log('⚠️ Navegação demorou, mas continuando...');
+    }
     
     const currentUrl = page.url();
     console.log('📍 URL atual:', currentUrl);
@@ -139,7 +141,7 @@ export async function createShopifyStore(email: string, storeName: string, passw
       
       console.log('🔘 Procurando botão criar conta...');
       
-      // Clica usando evaluate (mais simples)
+      // Clica usando evaluate
       const buttonClicked = await page.evaluate(() => {
         const buttons = Array.from(document.querySelectorAll('button'));
         const createBtn = buttons.find(btn => 
@@ -157,8 +159,6 @@ export async function createShopifyStore(email: string, storeName: string, passw
       
       if (buttonClicked) {
         console.log('✅ Botão criar conta clicado!');
-        
-        // Aguarda mais navegação
         await randomDelay(10000, 15000);
       } else {
         console.log('⚠️ Botão criar conta não encontrado');
@@ -169,10 +169,6 @@ export async function createShopifyStore(email: string, storeName: string, passw
     
     const finalUrl = page.url();
     console.log('🎉 URL final:', finalUrl);
-    
-    // Tira screenshot final
-    const screenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
-    console.log('📸 Screenshot capturado');
     
     // Verifica se chegou no admin ou myshopify
     if (finalUrl.includes('admin.shopify.com') && !finalUrl.includes('signup')) {
@@ -194,7 +190,7 @@ export async function createShopifyStore(email: string, storeName: string, passw
       return {
         success: false,
         storeUrl: finalUrl,
-        message: 'Processo iniciado mas não completou - possível captcha ou verificação necessária'
+        message: 'Processo iniciado mas não completou'
       };
     }
     
