@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createShopifyStore } from '@/app/api/shopify-automation';
+import { createShopifyStore } from './actions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +30,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ Erro:', error.message || error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Erro ao criar loja' },
+      {
+        success: false,
+        error: error.message || 'Erro ao criar loja',
+      },
       { status: 500 }
     );
   }
