@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createShopifyStore } from '../shopify-automation';
 
 // Inicializar Supabase
 const supabase = createClient(
@@ -46,12 +47,39 @@ export async function POST(request: NextRequest) {
     // Gerar dados
     const password = generatePassword();
     const { firstName, lastName } = extractNames(email);
+    const storeName = email.split('@')[0].replace(/[^a-z0-9]/g, '');
 
-    console.log('📦 Criando loja para:', email);
+    console.log('🚀 Iniciando criação da loja no Shopify...');
+    console.log('📧 Email:', email);
+    console.log('🏪 Nome da loja:', storeName);
 
-    // Simular criação (por enquanto)
-    const storeUrl = `https://${email.split('@')[0].replace(/[^a-z0-9]/g, '')}.myshopify.com`;
-    
+    // CRIAR LOJA REAL NO SHOPIFY COM PUPPETEER
+    const result = await createShopifyStore(email, storeName, password);
+
+    if (!result.success) {
+      console.error('❌ Erro ao criar loja:', result.message);
+      
+      // Salvar erro no Supabase
+      await supabase.from('stores').insert([
+        {
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          password,
+          store_url: null,
+          status: 'error'
+        }
+      ]);
+
+      return NextResponse.json(
+        { error: 'Erro ao criar loja no Shopify', details: result.message },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ Loja criada com sucesso no Shopify!');
+    console.log('🔗 URL:', result.storeUrl);
+
     // Salvar no Supabase
     const { data, error } = await supabase
       .from('stores')
@@ -61,7 +89,7 @@ export async function POST(request: NextRequest) {
           first_name: firstName,
           last_name: lastName,
           password,
-          store_url: storeUrl,
+          store_url: result.storeUrl,
           status: 'success'
         }
       ])
@@ -69,7 +97,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('❌ Erro Supabase:', error);
+      console.error('❌ Erro ao salvar no Supabase:', error);
       return NextResponse.json(
         { error: 'Erro ao salvar no banco de dados' },
         { status: 500 }
@@ -83,7 +111,7 @@ export async function POST(request: NextRequest) {
       password,
       firstName,
       lastName,
-      storeUrl,
+      storeUrl: result.storeUrl,
       createdAt: new Date().toISOString(),
       status: 'success'
     };
@@ -91,7 +119,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(storeData);
 
   } catch (error) {
-    console.error('❌ Erro:', error);
+    console.error('❌ Erro geral:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro desconhecido' },
       { status: 500 }
