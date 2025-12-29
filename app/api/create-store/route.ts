@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createShopifyStore } from '../shopify-automation';
+import { createShopifyStore } from '@/app/api/shopify-automation';
 
 // Inicializar Supabase
 const supabase = createClient(
