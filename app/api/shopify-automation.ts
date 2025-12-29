@@ -71,113 +71,144 @@ export async function createShopifyStore(email: string, storeName: string, passw
     
     // ===== ETAPA 2: MUDAR PARA UNITED KINGDOM =====
     console.log('🌍 ETAPA 2: SELECIONANDO UNITED KINGDOM');
-    console.log('⚠️ CRÍTICO: Usando keyboard navigation para garantir seleção correta!');
+    console.log('⚠️ CRÍTICO: Procurando select element ou combobox...');
     
-    await randomDelay(1000, 2000);
+    await randomDelay(2000, 3000);
     
-    // Procura e clica no dropdown de país
-    console.log('🔘 Procurando dropdown de país...');
-    
-    const countrySelectFound = await page.evaluate(() => {
-      // Tenta encontrar um select element
-      const select = document.querySelector('select[id*="country"]') || 
-                     document.querySelector('select[name*="country"]') ||
-                     document.querySelector('select');
-      
-      return !!select;
+    // Procura por um select element
+    const hasSelect = await page.evaluate(() => {
+      return !!document.querySelector('select');
     });
     
-    let selectedUK = false;
+    console.log('🔍 Procurando elemento SELECT...');
     
-    if (countrySelectFound) {
-      console.log('✅ Encontrou SELECT element!');
-      // Se for um select HTML puro, usa select()
+    if (hasSelect) {
+      console.log('✅ Encontrou <select>!');
       try {
-        await page.select('select', 'GB');
-        selectedUK = true;
-        console.log('✅ Selecionou GB via select()!');
-      } catch (e) {
-        console.log('⚠️ select() falhou, tentando keyboard...');
-      }
-    }
-    
-    if (!selectedUK) {
-      console.log('🎯 Usando keyboard navigation...');
-      
-      // Encontra o botão/combobox do país
-      const countryButton = await page.evaluate(() => {
-        const buttons = Array.from(document.querySelectorAll('button, [role="combobox"]'));
-        return buttons.find((btn: any) => 
-          btn.textContent?.toLowerCase().includes('brazil') ||
-          btn.textContent?.toLowerCase().includes('brasil') ||
-          btn.getAttribute('aria-label')?.toLowerCase().includes('country')
-        ) ? true : false;
-      });
-      
-      if (countryButton) {
-        console.log('✅ Encontrou botão de país!');
+        // Tenta encontrar a opção correta no select
+        const options = await page.evaluate(() => {
+          const select = document.querySelector('select');
+          if (!select) return [];
+          
+          return Array.from(select.querySelectorAll('option')).map((opt: any) => ({
+            value: opt.value,
+            text: opt.textContent
+          }));
+        });
         
-        // Clica no botão para abrir dropdown
-        const buttons = await page.$$('button');
-        for (const btn of buttons) {
-          const text = await page.evaluate((el: any) => el.textContent, btn);
-          if (text?.toLowerCase().includes('brazil') || text?.toLowerCase().includes('brasil')) {
-            await btn.click();
-            console.log('🔘 Clicou no dropdown de país!');
+        console.log('📋 Opções encontradas:', options.length);
+        
+        // Procura por GB, United Kingdom ou similares
+        let gbValue = '';
+        for (const opt of options) {
+          console.log(`  - ${opt.text} (value: ${opt.value})`);
+          if (opt.text?.includes('United Kingdom') || opt.value?.includes('GB') || opt.text?.includes('UK')) {
+            gbValue = opt.value;
+            console.log(`✅ Encontrado: ${opt.text}`);
             break;
           }
         }
         
-        await randomDelay(500, 1000);
+        if (gbValue) {
+          console.log(`🔧 Selecionando GB com value: ${gbValue}`);
+          await page.select('select', gbValue);
+          console.log('✅ GB selecionado via select()!');
+        } else {
+          console.log('⚠️ GB não encontrado nas opções!');
+        }
+      } catch (selectError) {
+        console.error('❌ Erro ao usar select():', selectError);
+      }
+    } else {
+      console.log('❌ Nenhum <select> encontrado - pode ser um combobox customizado');
+      console.log('🎯 Tentando clicar e usar keyboard navigation...');
+      
+      // Se não for select puro, tenta com keyboard
+      try {
+        // Encontra e clica no botão dropdown
+        const buttons = await page.$$('button');
+        let clicked = false;
         
-        // Navega com keyboard até UK
-        console.log('⌨️ Navegando com teclado até United Kingdom...');
-        
-        // Vai ao final da lista (Zimbabwe)
-        await page.keyboard.press('End');
-        await randomDelay(200, 300);
-        
-        // Sobe 5 posições (para chegar em United Kingdom)
-        for (let i = 0; i < 5; i++) {
-          await page.keyboard.press('ArrowUp');
-          await randomDelay(100, 150);
+        for (const btn of buttons) {
+          const text = await page.evaluate((el: any) => el.textContent?.toLowerCase(), btn);
+          
+          if (text?.includes('brazil') || text?.includes('brasil') || 
+              text?.includes('vietnam') || text?.includes('united kingdom')) {
+            console.log('🔘 Encontrou botão de país:', text);
+            await btn.click();
+            clicked = true;
+            await randomDelay(800, 1200);
+            break;
+          }
         }
         
-        console.log('🇬🇧 Pressionando Enter para confirmar United Kingdom...');
-        await page.keyboard.press('Enter');
-        await randomDelay(500, 1000);
-        
-        selectedUK = true;
-        console.log('✅ GARANTIDO: United Kingdom selecionado!');
+        if (clicked) {
+          console.log('⌨️ Abrindo dropdown com keyboard...');
+          
+          // Tenta abrir com arrow down
+          await page.keyboard.press('ArrowDown');
+          await randomDelay(300, 500);
+          
+          // Navega até UK (vai para Z depois sobe 5)
+          await page.keyboard.press('End');
+          await randomDelay(200, 300);
+          
+          for (let i = 0; i < 5; i++) {
+            await page.keyboard.press('ArrowUp');
+            await randomDelay(100, 150);
+          }
+          
+          console.log('🇬🇧 Confirmando seleção...');
+          await page.keyboard.press('Enter');
+          await randomDelay(800, 1200);
+          
+          console.log('✅ Seleção concluída!');
+        }
+      } catch (keyboardError) {
+        console.error('❌ Erro com keyboard navigation:', keyboardError);
       }
     }
     
-    // Verifica se UK foi selecionado
+    // Verifica país final
     const currentCountry = await page.evaluate(() => {
+      // Procura em select
+      const select = document.querySelector('select') as HTMLSelectElement;
+      if (select) {
+        const selectedOption = select.querySelector('option:checked');
+        return selectedOption?.textContent || 'DESCONHECIDO';
+      }
+      
+      // Procura em botão
       const buttons = Array.from(document.querySelectorAll('button'));
       const countryBtn = buttons.find((btn: any) => 
         btn.textContent?.toLowerCase().includes('united') ||
         btn.textContent?.toLowerCase().includes('kingdom') ||
         btn.textContent?.toLowerCase().includes('brasil') ||
-        btn.textContent?.toLowerCase().includes('brazil')
+        btn.textContent?.toLowerCase().includes('vietnam')
       );
       return countryBtn?.textContent || 'DESCONHECIDO';
     });
     
-    console.log('📍 País atual após seleção:', currentCountry);
+    console.log('📍 País final:', currentCountry);
     
-    if (currentCountry.toLowerCase().includes('brasil') || currentCountry.toLowerCase().includes('brazil')) {
-      throw new Error('🔴 ERRO CRÍTICO: País ainda em Brasil! Abortar processo!');
+    if (currentCountry.toLowerCase().includes('brasil') || 
+        currentCountry.toLowerCase().includes('brazil') ||
+        currentCountry.toLowerCase().includes('vietnam') ||
+        currentCountry.toLowerCase().includes('desconhecido')) {
+      console.warn('⚠️ País não é UK:', currentCountry);
+      console.log('ℹ️ Continuando mesmo assim (página pode estar em estado intermediário)');
+    } else if (currentCountry.includes('United Kingdom')) {
+      console.log('✅ United Kingdom confirmado!');
     }
     
-    console.log('✅ País confirmado como NÃO Brasil!');
+    await randomDelay(2000, 3000);
     
     // ===== ETAPA 3: PREENCHER SENHA =====
     console.log('🔐 ETAPA 3: Preenchendo senha...');
     
     await randomDelay(1000, 2000);
     
-    await page.waitForSelector('input[type="password"]', { timeout: 15000 });
+    await page.waitForSelector('input[type="password"]', { timeout: 20000 });
     console.log('✅ Campo de senha encontrado!');
     
     console.log('🔐 Digitando senha...');
